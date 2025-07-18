@@ -148,27 +148,32 @@ for (iter in 1:iterations) {
   
   # 8. **Sample Alpha_i | Beta, h, ω for each i** from its Gaussian full conditional.
   #    For each individual i:
+  # Precompute Z_i and Z_i %*% t(Z_i)
+  Z_list <- lapply(1:n, function(i) matrix(Z[i, ], nrow = q, ncol = 1))
+  Z_cross_list <- lapply(Z_list, function(Zi) Zi %*% t(Zi))
+  
+  # 8. Sample Alpha_i | Beta, h, ω for each i
   for (i in 1:n) {
-    # Extract vectors for this individual's observations
-    omega_i <- omega_mat[i, ]            # length t_obs
-    h_i     <- h_mat[i, ]               # length t_obs
-    X_i     <- X[i,, ]                  # (t_obs x p) matrix
-    # Compute precision: Q_alpha_i = V_alpha^{-1} + ∑_j ω_ij Z_ij Z_ij^T.
-    # (If Z is constant per individual, Z_ij = Z[i,] for all j.)
-    Z_i <- matrix(Z[i, ], nrow = q, ncol = 1)    # (q x 1) vector for this individual
-    # Sum over j: since Z_i is constant, ∑_j ω_ij * Z_i Z_i^T = (∑_j ω_ij) * (Z_i %*% t(Z_i))
+    omega_i <- omega_mat[i, ]
+    h_i     <- h_mat[i, ]
+    X_i     <- X[i,, ]
+    
+    Z_i       <- Z_list[[i]]           # q × 1
+    Z_i_cross <- Z_cross_list[[i]]     # q × q
+    
     sum_omega_i <- sum(omega_i)
-    Q_alpha_i <- solve(V_alpha) + sum_omega_i * (Z_i %*% t(Z_i))
-    # Compute mean: m_alpha_i = Q_alpha_i^{-1} [ ∑_j ω_ij * Z_ij * (h_ij - X_ij^T Beta) ]
-    # (Note: h_ij - X_ij^T Beta is the part of latent utility not explained by fixed effects.)
-    resid_i <- h_i - (X_i %*% Beta)     # vector length t_obs
-    # Since Z_i is constant, ∑_j ω_ij * (h_ij - X_ij β) * Z_i = (Z_i) * ∑_j ω_ij * resid_i
-    S_i <- Z_i * sum(omega_i * resid_i)   # (q x 1) vector
-    m_alpha_i <- solve(Q_alpha_i, S_i)
-    # Draw Alpha_i ~ MVN(m_alpha_i, Q_alpha_i^{-1})
-    cov_alpha_i <- solve(Q_alpha_i)
+    Q_alpha_i   <- V_alpha_inv + sum_omega_i * Z_i_cross
+    
+    resid_i <- h_i - (X_i %*% Beta)
+    S_i     <- Z_i * sum(omega_i * resid_i)
+    
+    Q_alpha_i_inv <- chol_inverse(Q_alpha_i)
+    m_alpha_i     <- Q_alpha_i_inv %*% S_i
+    cov_alpha_i   <- Q_alpha_i_inv
+    
     Alpha[i, ] <- as.numeric(mvrnorm(1, mu = m_alpha_i, Sigma = cov_alpha_i))
   }
+  
   
   # 9. **Sample V_alpha | Alpha** from Inverse-Wishart(ν0 + n, Λ0 + ∑_{i=1}^n α_i α_i^T).
   S_post <- Lambda0 + t(Alpha) %*% Alpha   # q x q scale matrix (sum of outer products of Alpha_i plus Lambda0)

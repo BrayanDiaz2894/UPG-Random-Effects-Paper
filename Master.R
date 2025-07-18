@@ -16,12 +16,7 @@ library(ggplot2)      # For plotting (if needed)
 source("Auxiliary Code/Gamma_Function.R")
 source("Auxiliary Code/Delta_Function.R")
 
-#I. A helper function for matrix inversion using Cholesky (if needed)
-inversechol <- function(mat, reg = 0) {
-  mat_reg <- mat + reg * diag(nrow(mat))
-  L <- chol(mat_reg)  # L such that t(L) %*% L = mat_reg
-  chol2inv(L)
-}
+
 
 #II. Truncated Sampling.
 sample_truncnorm_inverse <- function(a, b, mean = 0, sd = 1, eps = 1e-10) {
@@ -172,79 +167,79 @@ object_names <- ls()
 object_names <- ls()
 
 
-#I. Basic PG
-
-#i. Fix stuff outside the loop. 
-ZZ_precomp <- array(NA, dim = c(n, q, q))
-for (i in 1:n) {
-  ZZ_precomp[i,,] <- tcrossprod(Z[i, ])  # outer product: Z_i Z_i^T
-}
-X_flat <- matrix(X, nrow = n * t_obs, ncol = p) #Used to vectorize beta. 
-X_flatt_cross <- t(X_flat)%*%X_flat
-row_id    <- rep(1:n, times = t_obs)  
-V_alpha_inv <- inversechol(V_alpha)
-omega_store <- array(1, dim = c(iterations, n, t_obs))  # Store omega samples
-
-#ii. write store values. 
-Beta_save    <- matrix(NA, nrow = iterations, ncol = p)    # store beta draws
-Alpha_save   <- array(NA, dim = c(iterations, n, q))       # store alpha draws
-V_alpha_save <- array(1, dim = c(iterations, q, q))
-
-#iii. run the loop.
-source("Main Algorithms/Basic PG.R")
-
-#iv. clean 
-object_names1 <- ls() #Store all the objects after we ran the first loop. 
-dropset1 <- setdiff(object_names1,object_names) #Objects that are now but were not creating in the simulation
-rm(dropset1)
-
-
-
-#II. Hybrid PG and Latent Variable
-
-#i. Fix stuff outside the loop. 
-X_mat      <- matrix(X, nrow = n * t_obs, ncol = p)
-ZZ_precomp <- array(NA, dim = c(n, q, q))
-for(i in 1:n) {
-  ZZ_precomp[i,,] <- tcrossprod(Z[i,])
-}
-omega <- matrix(1, nrow = n, ncol = t_obs)      # Polya-Gamma latent vars (n x t_obs)
-
-## ii.fix initial values.
-Beta_save    <- matrix(NA, nrow = iterations, ncol = p)    # store beta draws
-Alpha_save   <- array(NA, dim = c(iterations, n, q))       # store alpha draws
-V_alpha_save <- vector("list", length = iterations)        # store V_alpha draws (as matrices)
-
-#iii. run the loop.
-source("Main Algorithms/Hybrid PG and Latent Variable.R")
-
-#iv. clean 
-object_names2 <- ls() #Store all the objects after we ran the first loop. 
-dropset2 <- setdiff(object_names2,object_names) #Objects that are now but were not creating in the simulation
-rm(dropset2)
-
-#III. UPG Gamma and Delta Integrated Alpha
-
-#i. Fix stuff outside the loop. 
-
-## ii.fix initial values.
-Beta_save    <- matrix(NA, nrow = iterations, ncol = p)    # store beta draws
-Alpha_save   <- array(NA, dim = c(iterations, n, q))       # store alpha draws
-V_alpha_save <- vector("list", length = iterations)        # store V_alpha draws (as matrices)
-gamma_save   <- numeric(iterations)                       # store gamma draws
-delta_save <- numeric(iterations)   # reserva espacio
-
-#iii. run the loop.
-source("Main Algorithms/UPG Gamma and Delta Integrated Alpha.R")
-
-#iv. clean 
-object_names3 <- ls() #Store all the objects after we ran the first loop. 
-dropset3 <- setdiff(object_names3,object_names) #Objects that are now but were not creating in the simulation
-rm(dropset3)
-
+# #I. Basic PG
+# 
+# #i. Fix stuff outside the loop. 
+# ZZ_precomp <- array(NA, dim = c(n, q, q))
+# for (i in 1:n) {
+#   ZZ_precomp[i,,] <- tcrossprod(Z[i, ])  # outer product: Z_i Z_i^T
+# }
+# X_flat <- matrix(X, nrow = n * t_obs, ncol = p) #Used to vectorize beta. 
+# X_flatt_cross <- t(X_flat)%*%X_flat
+# row_id    <- rep(1:n, times = t_obs)  
+# V_alpha_inv <- inversechol(V_alpha)
+# omega_store <- array(1, dim = c(iterations, n, t_obs))  # Store omega samples
+# 
+# #ii. write store values. 
+# Beta_save    <- matrix(NA, nrow = iterations, ncol = p)    # store beta draws
+# Alpha_save   <- array(NA, dim = c(iterations, n, q))       # store alpha draws
+# V_alpha_save <- array(1, dim = c(iterations, q, q))
+# 
+# #iii. run the loop.
+# source("Main Algorithms/Basic PG.R")
+# 
+# #iv. clean 
+# object_names1 <- ls() #Store all the objects after we ran the first loop. 
+# dropset1 <- setdiff(object_names1,object_names) #Objects that are now but were not creating in the simulation
+# rm(dropset1)
+# 
+# 
+# 
+# #II. Hybrid PG and Latent Variable
+# 
+# #i. Fix stuff outside the loop. 
+# X_mat      <- matrix(X, nrow = n * t_obs, ncol = p)
+# ZZ_precomp <- array(NA, dim = c(n, q, q))
+# for(i in 1:n) {
+#   ZZ_precomp[i,,] <- tcrossprod(Z[i,])
+# }
+# omega <- matrix(1, nrow = n, ncol = t_obs)      # Polya-Gamma latent vars (n x t_obs)
+# 
+# ## ii.fix initial values.
+# Beta_save    <- matrix(NA, nrow = iterations, ncol = p)    # store beta draws
+# Alpha_save   <- array(NA, dim = c(iterations, n, q))       # store alpha draws
+# V_alpha_save <- vector("list", length = iterations)        # store V_alpha draws (as matrices)
+# 
+# #iii. run the loop.
+# source("Main Algorithms/Hybrid PG and Latent Variable.R")
+# 
+# #iv. clean 
+# object_names2 <- ls() #Store all the objects after we ran the first loop. 
+# dropset2 <- setdiff(object_names2,object_names) #Objects that are now but were not creating in the simulation
+# rm(dropset2)
+#
+# #III. UPG Gamma and Delta Integrated Alpha
+# 
+# #i. Fix stuff outside the loop. 
+# 
+# ## ii.fix initial values.
+# Beta_save    <- matrix(NA, nrow = iterations, ncol = p)    # store beta draws
+# Alpha_save   <- array(NA, dim = c(iterations, n, q))       # store alpha draws
+# V_alpha_save <- vector("list", length = iterations)        # store V_alpha draws (as matrices)
+# gamma_save   <- numeric(iterations)                       # store gamma draws
+# delta_save <- numeric(iterations)   # reserva espacio
+# 
+# #iii. run the loop.
+# source("Main Algorithms/UPG Gamma and Delta Integrated Alpha.R")
+# 
+# #iv. clean 
+# object_names3 <- ls() #Store all the objects after we ran the first loop. 
+# dropset3 <- setdiff(object_names3,object_names) #Objects that are now but were not creating in the simulation
+# rm(dropset3)
+#
 #IV. UPG Gamma Integrated Alpha
-
-#i. Fix stuff outside the loop. 
+#
+#i. Fix stuff outside the loop.
 
 ## ii.fix initial values.
 Beta_save    <- matrix(NA, nrow = iterations, ncol = p)    # store beta draws
@@ -253,10 +248,10 @@ V_alpha_save <- vector("list", length = iterations)        # store V_alpha draws
 gamma_save   <- numeric(iterations)                       # store gamma draws
 
 #iii. run the loop.
-source("Main Algorithms/UPG Gamma Integrated Alpha.R")
+source("Main Algorithms/UPG Gamma Integrated Alpha V2.R")
 
-#iv. clean 
-object_names4 <- ls() #Store all the objects after we ran the first loop. 
+#iv. clean
+object_names4 <- ls() #Store all the objects after we ran the first loop.
 dropset4 <- setdiff(object_names4,object_names) #Objects that are now but were not creating in the simulation
 rm(dropset4)
 
