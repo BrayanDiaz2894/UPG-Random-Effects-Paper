@@ -18,7 +18,7 @@ for (iter in 1:iterations) {
     A_i <- sum(temp) * Z[i, ]
     
     # 3. Posterior covariance and mean
-    cov_alpha <- inversechol(B_i)  # Σ = B⁻¹
+    cov_alpha <- chol_inverse(B_i)  # Σ = B⁻¹
     mu_i <- cov_alpha %*% A_i           # μ = Σ * A_i
     
     # 4. Cholesky-based sampling
@@ -64,8 +64,8 @@ for (iter in 1:iterations) {
   mu_beta_data <- t(X_flat) %*% temp_vec
   
   # Finally, combine with the prior contribution:
-  mu_beta <- inversechol(Sigma_beta_inv) %*% (mu_beta_data + Sigma0_inv %*% mu0)
-  Sigma_beta <- inversechol(Sigma_beta_inv, 1e-6)  # posterior covariance
+  mu_beta <- chol_inverse(Sigma_beta_inv) %*% (mu_beta_data + Sigma0_inv %*% mu0)
+  Sigma_beta <- chol_inverse(Sigma_beta_inv)  # posterior covariance
   R <- chol(Sigma_beta)                            # upper-triangular: Sigma_beta = R'R
   z <- rnorm(p)                                    # standard normal vector
   Beta <- as.numeric(mu_beta + t(R) %*% z) # correct draw
@@ -83,7 +83,7 @@ for (iter in 1:iterations) {
   # Step 4: Sample V_alpha
   V_Alpha <- riwish(nu0 + n, Lambda0 + t(Alpha) %*% Alpha)
   V_alpha_save[iter, , ] <- V_Alpha
-  V_alpha_inv <- inversechol(V_Alpha)
+  V_alpha_inv <- chol_inverse(V_Alpha)
 }
   end_time <- Sys.time()
   print(end_time - start_time)

@@ -74,7 +74,7 @@ for (iter in 1:iterations) {
   # 5. **Sample gamma_new | ω, h_tilde, Y** from N(g_N, G_N) truncated to [L, U].
     # ---- Draw γ | ·  (truncated normal) ----
       V_alpha_inv <- solve(V_alpha)
-      omega_vec <- as.vector(omega_mat)
+      omega_vector <- as.vector(omega_mat)
       h_vec     <- as.vector(h_mat)
     
     ## I · sumatorios globales Σ ω   y   Σ ω h
@@ -95,10 +95,10 @@ for (iter in 1:iterations) {
       m_alpha02 <- matrix(as.numeric(t(b2_mat)), n * q, 1)
       
       ## ----------  swX  usando X_all --------------------------------------------
-      omega_vec <- c(t(omega_mat))                     # (n·t_obs) — ROW‑wise
+      omega_vector <- c(t(omega_mat))                     # (n·t_obs) — ROW‑wise
       row_id    <- rep(seq_len(n), each = t_obs)
       
-      swX_mat <- t( rowsum(X_all * omega_vec, row_id) )   # p × n
+      swX_mat <- t( rowsum(X_all * omega_vector, row_id) )   # p × n
       
       ## ----------  listas --------------------------------------------------------
       
@@ -138,16 +138,16 @@ for (iter in 1:iterations) {
     
       eta_P_alpha <- t(eta) %*% P_alpha_inv
       
-      Sigma_beta_star <- t(X_all) %*% (omega_vec * X_all) +
+      Sigma_beta_star <- t(X_all) %*% (omega_vector * X_all) +
         Sigma0_inv -
         eta_P_alpha %*% eta
       Sigma_beta_star_inv <- solve(Sigma_beta_star)
       
-      mu_beta1_star <- colSums(omega_vec * h_vec * X_all) +
+      mu_beta1_star <- colSums(omega_vector * h_vec * X_all) +
         as.numeric(Sigma0_inv %*% mu0) -
         as.numeric(eta_P_alpha %*% psi)
       
-      mu_beta2_star <- colSums(omega_vec * X_all) -
+      mu_beta2_star <- colSums(omega_vector * X_all) -
         as.numeric(t(psi_gamma) %*% P_alpha_inv %*% eta)
     
     ## VI · escalares de numerador y denominador  (con signos correctos)
@@ -194,11 +194,11 @@ for (iter in 1:iterations) {
       h_vec <- c(t(h_mat))               # N_total × 1 (row-wise flatten)
       
       ## (i). Σ ω h^2 -----------------------------------------------------
-      sum_h2 <- sum(omega_vec * (h_vec^2))
+      sum_h2 <- sum(omega_vector * (h_vec^2))
       
       ## (ii). XtΩX y XtΩh SIN loop (reuso de estructuras gamma) ----------
-      XtOmegaX <- t(X_all) %*% (omega_vec * X_all)        # p × p
-      XtOmegah <- t(X_all) %*% (omega_vec * h_vec)        # p × 1
+      XtOmegaX <- t(X_all) %*% (omega_vector * X_all)        # p × p
+      XtOmegah <- t(X_all) %*% (omega_vector * h_vec)        # p × 1
       
       ## (iii). Bloques colapsados por individuo (reuso total) -----------
       nu          <- matrix(as.numeric(t(b1_mat)), n * q, 1)  # (nq) × 1
@@ -276,34 +276,28 @@ for (iter in 1:iterations) {
   ## STEP 9 : draw α_i | δ , β , h , ω         (usa h⋆ re-escalado)
   ## ---------------------------------------------------------------
   
-             # n × T   (h⋆)
-    #    This matches the efficiency trick in your reference block.
-    Z_list <- lapply(seq_len(n), function(i) matrix(Z[i, ], nrow = q, ncol = 1))
-    Z_cross_list <- lapply(Z_list, function(Zi) Zi %*% t(Zi))  # each is q × q
-    
     for (i in 1:n) {
       ## --- datos del individuo i -----------------------------------
       omega_i <- omega_mat[i, ]                  # (T)
       h_star_i <- h_mat[i, ]               # (T)
       X_i <- X[i, , ]                            # T × p
-      Z_i       <- Z_list[[i]]                 # q × 1
-      Z_i_cross <- Z_cross_list[[i]]           # q × q
+      Z_i <- matrix(Z[i, ], nrow = q, ncol = 1) # q × 1  (constante en j)
       
       ## --- precisión  Σ_{α_i}^{-1} ---------------------------------
       sum_omega_i <- sum(omega_i)
       Sigma_alpha_inv_i <- solve(V_alpha) +
-        sum_omega_i * Z_i_cross   # q × q
+        sum_omega_i * (Z_i %*% t(Z_i))   # q × q
       
       ## --- media  m_{α_i} ------------------------------------------
       resid_star_i <- h_star_i*scale_h - (X_i %*% Beta)             # (T)
       S_i <- Z_i * sum(omega_i * resid_star_i)              # q × 1
-      Sigma_alpha_i <- chol_inverse(Sigma_alpha_inv_i)  # q × q
-      m_alpha_i     <- Sigma_alpha_i %*% S_i            # q × 1              # Σ_{α_i}
-      mu_i <- drop(m_alpha_i)
+      m_alpha_i <- solve(Sigma_alpha_inv_i, S_i)            # q × 1
       
-      # 1 draw -> matriz 1 × q; toma la primera fila
-      Alpha[i, ] <- rmvnorm_chol(mu = mu_i, Sigma = Sigma_alpha_i, n_draw = 1L)[1, ]
-      
+      ## --- draw α_i  ~  N(m_{α_i}, Σ_{α_i}) ------------------------
+      cov_alpha_i <- solve(Sigma_alpha_inv_i)               # Σ_{α_i}
+      Alpha[i, ] <- as.numeric(
+        mvrnorm(1, mu = m_alpha_i  ,
+                Sigma = cov_alpha_i))
     }
     
 
