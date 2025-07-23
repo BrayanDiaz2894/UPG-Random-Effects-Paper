@@ -87,7 +87,7 @@ for (iter in 1:iterations) {
 }
   end_time <- Sys.time()
   print(end_time - start_time)
-  timesamples_naug <- end_time - start_time 
+  timesamples_naug <- time_to_seconds(end_time - start_time) 
   
 
     

@@ -12,6 +12,7 @@ library(truncnorm)    # For truncated normal sampling
 library(coda)         # For MCMC diagnostics (if needed)
 library(ggplot2)      # For plotting (if needed)
 library(profvis)
+library(cmdstanr)
 
 #2. Auxiliary Functions. 
 source("Auxiliary Code/Gamma_FunctionV2.R") #Always use gamma V2. It is actualy used in the sampler with only gamma augmentation.
@@ -77,6 +78,64 @@ rmvnorm_chol <- function(mu, Sigma, n_draw = 1)
   return(X)
 }
 
+time_to_seconds <- function(x) {
+  # Vectoriza
+  x <- unlist(x, use.names = TRUE)
+  
+  convert_one <- function(z) {
+    # NA o vacío
+    if (is.null(z) || is.na(z) || !nzchar(z)) return(NA_real_)
+    
+    # Si ya es difftime
+    if (inherits(z, "difftime")) return(as.numeric(z, units = "secs"))
+    
+    # Si es numérico puro: asumimos segundos
+    if (is.numeric(z)) return(as.numeric(z))
+    
+    # Limpia espacios extra
+    z <- trimws(z)
+    
+    # Formato hh:mm:ss o mm:ss
+    if (grepl("^\\d{1,2}:\\d{2}(:\\d{2})?$", z)) {
+      parts <- as.numeric(strsplit(z, ":")[[1]])
+      if (length(parts) == 2) {           # mm:ss
+        return(parts[1] * 60 + parts[2])
+      } else if (length(parts) == 3) {    # hh:mm:ss
+        return(parts[1] * 3600 + parts[2] * 60 + parts[3])
+      }
+    }
+    
+    # Extraer pares número-unidad (ej: "1.2 sec", "3 min", "4h")
+    pattern <- "([0-9]*\\.?[0-9]+)\\s*([a-zA-Z]+)"
+    m <- gregexpr(pattern, z, perl = TRUE)
+    matches <- regmatches(z, m)[[1]]
+    if (length(matches) == 0) return(NA_real_)
+    
+    # Tabla de conversión a segundos
+    unit_map <- c(
+      "ms" = 1e-3, "msec" = 1e-3, "millisecond" = 1e-3, "milliseconds" = 1e-3,
+      "s" = 1, "sec" = 1, "second" = 1, "seconds" = 1,
+      "m" = 60, "min" = 60, "minute" = 60, "minutes" = 60,
+      "h" = 3600, "hr" = 3600, "hour" = 3600, "hours" = 3600,
+      "d" = 86400, "day" = 86400, "days" = 86400
+    )
+    
+    total <- 0
+    for (piece in matches) {
+      num  <- as.numeric(sub(pattern, "\\1", piece, perl = TRUE))
+      unit <- tolower(sub(pattern, "\\2", piece, perl = TRUE))
+      if (!unit %in% names(unit_map)) next
+      total <- total + num * unit_map[unit]
+    }
+    total
+  }
+  
+  out <- vapply(x, convert_one, numeric(1))
+  names(out) <- names(x)
+  out
+}
+
+
 # 1. Simulation. 
 
 # I. Set simulation parameters
@@ -84,7 +143,7 @@ n      <- 100 # Number of individuals
 t_obs  <- 30    # Observations per individual
 p      <- 3     # Number of fixed-effect predictors (including intercept)
 q      <- 2     # Number of random-effect covariates (random effects dimension)
-unbalance <- 1
+unbalance <- 6
 iterations <- 2000
 
 
@@ -167,10 +226,10 @@ gamma_save   <- numeric(iterations)                       # store gamma draws
 object_names <- ls()
 object_names <- ls()
 
-  # #iv. profile.
-  # source("Additional Versions/UPG Gamma and Delta Integrated Alpha V2 Profiler.R")   # carga la función con una ruta concreta
-  # profvis(run_gibbs_sampler())
-  # rm(run_gibbs_sampler)
+# #iv. profile.
+source("Additional Versions/UPG Gamma and Delta Integrated Alpha V2 Profiler.R")   # carga la función con una ruta concreta
+profvis(run_gibbs_sampler())
+rm(run_gibbs_sampler)
 
 
 # #I. Basic PG
@@ -223,27 +282,32 @@ object_names <- ls()
 # object_names2 <- ls() #Store all the objects after we ran the first loop.
 # dropset2 <- setdiff(object_names2,object_names) #Objects that are now but were not creating in the simulation
 # rm(dropset2)
-
-#III. UPG Gamma and Delta Integrated Alpha
-
-#i. Fix stuff outside the loop.
-
-## ii.fix initial values.
-Beta_save    <- matrix(NA, nrow = iterations, ncol = p)    # store beta draws
-Alpha_save   <- array(NA, dim = c(iterations, n, q))       # store alpha draws
-V_alpha_save <- vector("list", length = iterations)        # store V_alpha draws (as matrices)
-gamma_save   <- numeric(iterations)                       # store gamma draws
-delta_save <- numeric(iterations)   # reserva espacio
-
-#iii. run the loop.
-source("Main Algorithms/UPG Gamma and Delta Integrated Alpha V2.R")
-
-#iv. clean
-object_names3 <- ls() #Store all the objects after we ran the first loop.
-dropset3 <- setdiff(object_names3,object_names) #Objects that are now but were not creating in the simulation
-rm(dropset3)
-
-# #IV. UPG Gamma Integrated Alpha
+# 
+# #III. Hamiltonian Monte Carlo Stan.
+# 
+# #i. Fix stuff outside the loop.
+# y_all   <- integer(N_total)
+# id      <- integer(N_total)
+# row_idx <- 1
+# for (i in 1:n) {
+#   idx_end <- row_idx + t_obs - 1
+#   y_all[row_idx:idx_end]   <- Y[i, ]
+#   id[row_idx:idx_end]      <- i
+#   row_idx <- idx_end + 1
+# }
+# 
+# ## ii.fix initial values.
+# 
+# 
+# #iii. run the loop.
+# source("Main Algorithms/HMC stan.R")
+# 
+# #iv. clean
+# object_names3 <- ls() #Store all the objects after we ran the first loop.
+# dropset3 <- setdiff(object_names3,object_names) #Objects that are now but were not creating in the simulation
+# rm(dropset3)
+# 
+# #IV. UPG Gamma and Delta Integrated Alpha
 # 
 # #i. Fix stuff outside the loop.
 # 
@@ -252,14 +316,17 @@ rm(dropset3)
 # Alpha_save   <- array(NA, dim = c(iterations, n, q))       # store alpha draws
 # V_alpha_save <- vector("list", length = iterations)        # store V_alpha draws (as matrices)
 # gamma_save   <- numeric(iterations)                       # store gamma draws
+# delta_save <- numeric(iterations)   # reserva espacio
 # 
 # #iii. run the loop.
-# source("Main Algorithms/UPG Gamma Integrated Alpha V2.R")
+# source("Main Algorithms/UPG Gamma and Delta Integrated Alpha V2.R")
 # 
 # #iv. clean
 # object_names4 <- ls() #Store all the objects after we ran the first loop.
 # dropset4 <- setdiff(object_names4,object_names) #Objects that are now but were not creating in the simulation
 # rm(dropset4)
+# 
+
 
 
 

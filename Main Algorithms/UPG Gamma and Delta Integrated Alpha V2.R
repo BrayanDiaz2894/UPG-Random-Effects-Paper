@@ -73,7 +73,7 @@ for (iter in 1:iterations) {
   
   # 5. **Sample gamma_new | ω, h_tilde, Y** from N(g_N, G_N) truncated to [L, U].
     # ---- Draw γ | ·  (truncated normal) ----
-      V_alpha_inv <- solve(V_alpha)
+      V_alpha_inv <- chol_inverse(V_alpha)
       omega_vector <- as.vector(omega_mat)
       h_vec     <- as.vector(h_mat)
     
@@ -141,7 +141,7 @@ for (iter in 1:iterations) {
       Sigma_beta_star <- t(X_all) %*% (omega_vector * X_all) +
         Sigma0_inv -
         eta_P_alpha %*% eta
-      Sigma_beta_star_inv <- solve(Sigma_beta_star)
+      Sigma_beta_star_inv <- chol_inverse(Sigma_beta_star)
       
       mu_beta1_star <- colSums(omega_vector * h_vec * X_all) +
         as.numeric(Sigma0_inv %*% mu0) -
@@ -208,7 +208,7 @@ for (iter in 1:iterations) {
       # eta_P_eta = t(eta) %*% P_alpha_inv %*% eta
       eta_P_eta       <- t(eta) %*% (P_alpha_inv %*% eta)
       Sigma_beta_prec <- Sigma0_inv + XtOmegaX - eta_P_eta    # precisión (p×p)
-      Sigma_beta_cov  <- solve(Sigma_beta_prec)               # covarianza posterior
+      Sigma_beta_cov  <- chol_inverse(Sigma_beta_prec)               # covarianza posterior
       
       # b_beta = XtΩh - t(eta) %*% P_alpha_inv %*% nu + Sigma0_inv %*% mu0
       b_beta       <- XtOmegah - t(eta) %*% (P_alpha_inv %*% nu) + Sigma0_inv %*% mu0
@@ -277,7 +277,6 @@ for (iter in 1:iterations) {
   ## ---------------------------------------------------------------
   
     for (i in 1:n) {
-      ## --- datos del individuo i -----------------------------------
       omega_i <- omega_mat[i, ]                  # (T)
       h_star_i <- h_mat[i, ]               # (T)
       X_i <- X[i, , ]                            # T × p
@@ -285,19 +284,32 @@ for (iter in 1:iterations) {
       
       ## --- precisión  Σ_{α_i}^{-1} ---------------------------------
       sum_omega_i <- sum(omega_i)
-      Sigma_alpha_inv_i <- solve(V_alpha) +
+      Sigma_alpha_inv_i <- V_alpha_inv +
         sum_omega_i * (Z_i %*% t(Z_i))   # q × q
       
       ## --- media  m_{α_i} ------------------------------------------
       resid_star_i <- h_star_i*scale_h - (X_i %*% Beta)             # (T)
       S_i <- Z_i * sum(omega_i * resid_star_i)              # q × 1
-      m_alpha_i <- solve(Sigma_alpha_inv_i, S_i)            # q × 1
+      ## --- media  m_{α_i} ------------------------------------------
       
-      ## --- draw α_i  ~  N(m_{α_i}, Σ_{α_i}) ------------------------
-      cov_alpha_i <- solve(Sigma_alpha_inv_i)               # Σ_{α_i}
-      Alpha[i, ] <- as.numeric(
-        mvrnorm(1, mu = m_alpha_i  ,
-                Sigma = cov_alpha_i))
+      #Let m_i to be the mean and Q_i to be the variance. Let S_i to be the linear term from the kernel.
+      #Then the mean m_i = Q_i^-1 * S_i   or Q_i*m_i=S_i 
+      #We dont want to invert Q_i. 
+      #We decompose Q_i = R'R, then Q_i*m_i=S_i which implies that R'R*m_i=S_i
+      #First we solve R' y = S_i (for y) so we have: y=R'^-1*S_i
+      #Then we solve R m_i = y so we have  m_i = R^-1*y=(RR)'^-1*S_i
+      #Backsolve is used for R triangular inferior, forward solve for R triangular sueperior#Backsolve is used for R triangular inferior, forward solve for R triangular sueperior
+      
+      
+      R   <- chol(Sigma_alpha_inv_i)                          # Q_i = R'R
+      y   <- forwardsolve(t(R), S_i, upper.tri = FALSE)       # resuelve R' y = S_i
+      m_i <- backsolve(R,  y, upper.tri = TRUE)               # luego R m_i = y
+      
+      
+      z <- rnorm(length(m_i))                                 # z ~ N(0, I_q)
+      Alpha[i, ] <- drop(m_i + backsolve(R, z, upper.tri = TRUE))
+      
+      
     }
     
 
@@ -314,7 +326,7 @@ for (iter in 1:iterations) {
 }
 end_time <- Sys.time()
 print(end_time - start_time)
-timesamples_upgd <- end_time - start_time
+timesamples_upgd <- time_to_seconds(end_time - start_time)
 
 # VIII. Discard burn-in samples
 Beta_samples    <- Beta_save[(burnin+1):iterations, , drop=FALSE]

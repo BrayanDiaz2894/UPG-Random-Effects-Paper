@@ -94,7 +94,7 @@ for (iter in 1:iterations) {
   A_mat       <- Z * sum_resid                 # n × q
   
   # 5) posterior precision constant
-  V_alpha_inv <- solve(V_alpha)        # q × q
+  V_alpha_inv <- chol_inverse(V_alpha)        # q × q
   for(i in 1:n) {
     # Posterior precision and covariance
     Bi      <- V_alpha_inv + sum_omega[i] * ZZ_precomp[i,,]
@@ -142,7 +142,7 @@ for (iter in 1:iterations) {
   )
   
   # 4) Posterior covariance and mean
-  Sigma_beta <- solve(Sigma_beta_inv)
+  Sigma_beta <- chol_inverse(Sigma_beta_inv)
   mu_beta    <- Sigma_beta %*% (Sigma0_inv %*% mu0 + sum_term)
   
   # 5) One MVN draw

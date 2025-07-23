@@ -41,7 +41,7 @@ p <- 3         # Number of predictors (fixed effects)
 q <- 2         # Number of individual-level covariates (random effects)
 reg <- 0       # Regularization parameter (if needed)
 num_iters <- 2000
-unbalance <- 1
+unbalance <- 6
 
 # IV. Simulate data
 # i. Basic data:
@@ -65,9 +65,10 @@ filename2 <- paste0(
   n, "_", t_obs, "_", num_iters, "_", unbalance, ".RData"
 )
 
+num_hmc <- num_iters - num_iters*0.1
 filename3 <- paste0(
-  "Output/V_samplesupg_",
-  n, "_", t_obs, "_", num_iters, "_", unbalance, ".RData"
+  "Output/V_sampleshmc_",
+  n, "_", t_obs, "_", num_hmc, "_", unbalance, ".RData"
 )
 
 filename4 <- paste0(
@@ -208,28 +209,28 @@ summary_mcmc <- function(draws) {
 
 density_plot <- density_overlay(vec1 = beta_1_samplesnaug, 
                                 vec2 = beta_1_samplesaug,
-                                vec3 = beta_1_samplesupg,
+                                vec3 = beta_1_sampleshmc,
                                 vec4 = beta_1_samplesupgd,
                                 vertical_line = beta_true[1],
-                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent", "UPG Gamma" ,  "UPG Full Delta"))
+                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent", "HMC Stan" ,  "UPG Full Delta"))
 
 print(density_plot)
 
 density_plot <- density_overlay(vec1 = beta_2_samplesnaug, 
                                 vec2 = beta_2_samplesaug,
-                                vec3 = beta_2_samplesupg,
+                                vec3 = beta_2_sampleshmc,
                                 vec4 = beta_2_samplesupgd,
                                 vertical_line = beta_true[2],
-                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent", "UPG Gamma" , "UPG Gamma Delta"))
+                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent", "HMC Stan" , "UPG Gamma Delta"))
 
 print(density_plot)
 
 density_plot <- density_overlay(vec1 = beta_3_samplesnaug, 
                                 vec2 = beta_3_samplesaug,
-                                vec3 = beta_3_samplesupg,
+                                vec3 = beta_3_sampleshmc,
                                 vec4 = beta_3_samplesupgd,
                                 vertical_line = beta_true[3],
-                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent", "UPG Gamma" , "UPG Gamma Delta"))
+                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent", "HMC Stan" , "UPG Gamma Delta"))
 
 print(density_plot)
 
@@ -239,8 +240,8 @@ print(density_plot)
 
 time_naug <- as.numeric(timesamples_naug, units = "secs")^constant 
 time_aug <- as.numeric(timesamples_aug, units = "secs")^constant  
-time_upg <- as.numeric(timesamples_upg, units = "secs")^constant  
-time_upg <- 1
+#time_upg <- as.numeric(timesamples_hmc, units = "secs")^constant  
+time_hmc <- as.numeric(timesamples_hmc, units = "secs")^constant 
 time_upgd <-as.numeric(timesamples_upgd, units = "secs")^constant  
 
 #ESS. 
@@ -248,8 +249,8 @@ beta_1_samplesnaug <- as.mcmc(beta_1_samplesnaug)
 essb1naug <- effectiveSize(beta_1_samplesnaug)/time_naug
 beta_1_samplesaug <- as.mcmc(beta_1_samplesaug)
 essb1aug <- effectiveSize(beta_1_samplesaug)/time_aug
-beta_1_samplesupg <- as.mcmc(beta_1_samplesupg)
-essb1upg <- effectiveSize(beta_1_samplesupg)/time_upg
+beta_1_sampleshmc <- as.mcmc(beta_1_sampleshmc)
+essb1hmc <- effectiveSize(beta_1_sampleshmc)/time_hmc
 beta_1_samplesupgd <- as.mcmc(beta_1_samplesupgd)
 essb1upgd <- effectiveSize(beta_1_samplesupgd)/time_upgd
 
@@ -259,8 +260,8 @@ beta_2_samplesnaug <- as.mcmc(beta_2_samplesnaug)
 essb2naug <- effectiveSize(beta_2_samplesnaug)/time_naug
 beta_2_samplesaug <- as.mcmc(beta_2_samplesaug)
 essb2aug <- effectiveSize(beta_2_samplesaug)/time_aug
-beta_2_samplesupgd <- as.mcmc(beta_2_samplesupg)
-essb2upg <- effectiveSize(beta_2_samplesupg)/time_upg
+beta_2_sampleshmc <- as.mcmc(beta_2_sampleshmc)
+essb2hmc <- effectiveSize(beta_2_sampleshmc)/time_hmc
 beta_2_samplesupgd <- as.mcmc(beta_2_samplesupgd)
 essb2upgd <- effectiveSize(beta_2_samplesupgd)/time_upgd
 
@@ -268,8 +269,8 @@ beta_3_samplesnaug <- as.mcmc(beta_3_samplesnaug)
 essb3naug <- effectiveSize(beta_3_samplesnaug)/time_naug
 beta_3_samplesaug <- as.mcmc(beta_3_samplesaug)
 essb3aug <- effectiveSize(beta_3_samplesaug)/time_aug
-beta_3_samplesupgd <- as.mcmc(beta_3_samplesupg)
-essb3upg <- effectiveSize(beta_3_samplesupg)/time_upg
+beta_3_sampleshmc <- as.mcmc(beta_3_sampleshmc)
+essb3hmc <- effectiveSize(beta_3_sampleshmc)/time_hmc
 beta_3_samplesupgd <- as.mcmc(beta_3_samplesupgd)
 essb3upgd <- effectiveSize(beta_3_samplesupgd)/time_upgd
 
@@ -279,17 +280,17 @@ ess_df <- data.frame(
   method = factor(
     rep(c("Polya Gamma Augmentation",
           "Polya Gamma + Latent Variable Augmentation",
-          "UPG Gamma",
+          "HMC Stan",
           "UPG Gamma Delta"), times = 3),
     levels = c("Polya Gamma Augmentation",
                "Polya Gamma + Latent Variable Augmentation",
-               "UPG Gamma",
+               "HMC Stan",
                "UPG Gamma Delta")                 # orden en la leyenda
   ),
   ess = c(
-    essb1naug, essb1aug, essb1upg, essb1upgd,
-    essb2naug, essb2aug, essb2upg, essb2upgd,
-    essb3naug, essb3aug, essb3upg, essb3upgd
+    essb1naug, essb1aug, essb1hmc, essb1upgd,
+    essb2naug, essb2aug, essb2hmc, essb2upgd,
+    essb3naug, essb3aug, essb3hmc, essb3upgd
   )
 )
 
@@ -302,12 +303,12 @@ ggplot(ess_df, aes(x = beta, y = ess, fill = method)) +
     values = c(
       "Polya Gamma Augmentation"                       = "#1f77b4",  # azul
       "Polya Gamma + Latent Variable Augmentation"     = "#d62728",  # rojo
-      "UPG Gamma"                                       = "#2ca02c",  # verde
+      "HMC Stan"                                       = "#2ca02c",  # verde
       "UPG Gamma Delta"                                    = "#ff7f0e"   # naranja
     ),
     breaks = c("Polya Gamma Augmentation",
                "Polya Gamma + Latent Variable Augmentation",
-               "UPG Gamma",
+               "HMC Stan",
                "UPG Gamma Delta")                          # orden en la leyenda
   ) +
   scale_x_discrete(labels = c(
@@ -325,154 +326,154 @@ ggplot(ess_df, aes(x = beta, y = ess, fill = method)) +
 
 ggsave(filename = "Output/Results/essbeta.pdf", width = 8, height = 4, dpi = 300)
 
-#3. Tracepots.
-
-#Plot for PG and Hybrid.
-plot_beta_trace <- function(idx, k = NULL) {
-  # build the object names
-  name_naug <- paste0("beta_", idx, "_samplesnaug")
-  name_aug  <- paste0("beta_", idx, "_samplesaug")
-  
-  # grab them from the environment
-  b_naug <- get(name_naug)
-  b_aug  <- get(name_aug)
-  
-  # optionally restrict to first k draws
-  if (!is.null(k)) {
-    b_naug <- head(b_naug, k)
-    b_aug  <- head(b_aug,  k)
-  }
-  
-  # build a data.frame
-  df <- data.frame(
-    iteration = c(seq_along(b_naug), seq_along(b_aug)),
-    value     = c(b_naug, b_aug),
-    sampler   = factor(
-      c(
-        rep("Polya Gamma Augmentation", length(b_naug)),
-        rep("Polya Gamma + Latent Variable", length(b_aug))
-      ),
-      levels = c("Polya Gamma Augmentation", "Polya Gamma + Latent Variable")
-    )
-  )
-  
-  # plot with horizontal line for true value
-  ggplot(df, aes(x = iteration, y = value, color = sampler)) +
-    geom_line(alpha = 0.7) +
-    geom_hline(yintercept = beta_true[idx], 
-               linetype = "dashed", 
-               color = "black", 
-               size = 0.9) +
-    scale_color_manual(
-      values = c(
-        "Polya Gamma Augmentation"         = "blue", 
-        "Polya Gamma + Latent Variable"    = "red"
-      )
-    ) +
-    labs(
-      x     = "Iteration",
-      y     = bquote(beta[.(idx)]),
-      color = "Sampler"
-    ) +
-    theme_minimal() +
-    theme(legend.position = "bottom")
-}
-
-#Plot for UPG. 
-plot_beta_traceupg <- function(idx, k = NULL) {
-  # build the object names
-  name_upg <- paste0("beta_", idx, "_samplesupg")
-  name_upgd  <- paste0("beta_", idx, "_samplesupgd")
-  
-  # grab them from the environment
-  b_upg <- get(name_upg)
-  b_upgd  <- get(name_upgd)
-  
-  # optionally restrict to first k draws
-  if (!is.null(k)) {
-    b_upg <- head(b_upg, k)
-    b_upgd  <- head(b_upgd,  k)
-  }
-  
-  # build a data.frame
-  df <- data.frame(
-    iteration = c(seq_along(b_upg), seq_along(b_upgd)),
-    value     = c(b_upg, b_upgd),
-    sampler   = factor(
-      c(
-        rep("Ultimate Polya Gamma Full", length(b_upg)),
-        rep("Ultimate Polya Gamma Partial", length(b_upgd))
-      ),
-      levels = c("Ultimate Polya Gamma Full", "Ultimate Polya Gamma Partial")
-    )
-  )
-  
-  # plot with horizontal line for true value
-  ggplot(df, aes(x = iteration, y = value, color = sampler)) +
-    geom_line(alpha = 0.7) +
-    geom_hline(yintercept = beta_true[idx], 
-               linetype = "dashed", 
-               color = "black", 
-               size = 0.9) +
-    scale_color_manual(
-      values = c(
-        "Ultimate Polya Gamma Full"         = "blue", 
-        "Ultimate Polya Gamma Partial"    = "red"
-      )
-    ) +
-    labs(
-      x     = "Iteration",
-      y     = bquote(beta[.(idx)]),
-      color = "Sampler"
-    ) +
-    theme_minimal() +
-    theme(legend.position = "bottom")
-}
-
-
-k <- num_iters
-plot_beta_trace(1, k) 
-ggsave(filename = "Output/Results/tracebeta1.pdf", width = 8, height = 4, dpi = 300)
-plot_beta_traceupg(1, k) 
-ggsave(filename = "Output/Results/tracebeta1upg.pdf", width = 8, height = 4, dpi = 300)
-
-plot_beta_trace(2, k) 
-ggsave(filename = "Output/Results/tracebeta2.pdf", width = 8, height = 4, dpi = 300)
-plot_beta_traceupg(2, k) 
-ggsave(filename = "Output/Results/tracebeta2upg.pdf", width = 8, height = 4, dpi = 300)
-
-plot_beta_trace(3, k) 
-ggsave(filename = "Output/Results/tracebeta3.pdf", width = 8, height = 4, dpi = 300)
-plot_beta_traceupg(3, k) 
-ggsave(filename = "Output/Results/tracebeta3upg.pdf", width = 8, height = 4, dpi = 300)
+# #3. Tracepots.
+# 
+# #Plot for PG and Hybrid.
+# plot_beta_trace <- function(idx, k = NULL) {
+#   # build the object names
+#   name_naug <- paste0("beta_", idx, "_samplesnaug")
+#   name_aug  <- paste0("beta_", idx, "_samplesaug")
+#   
+#   # grab them from the environment
+#   b_naug <- get(name_naug)
+#   b_aug  <- get(name_aug)
+#   
+#   # optionally restrict to first k draws
+#   if (!is.null(k)) {
+#     b_naug <- head(b_naug, k)
+#     b_aug  <- head(b_aug,  k)
+#   }
+#   
+#   # build a data.frame
+#   df <- data.frame(
+#     iteration = c(seq_along(b_naug), seq_along(b_aug)),
+#     value     = c(b_naug, b_aug),
+#     sampler   = factor(
+#       c(
+#         rep("Polya Gamma Augmentation", length(b_naug)),
+#         rep("Polya Gamma + Latent Variable", length(b_aug))
+#       ),
+#       levels = c("Polya Gamma Augmentation", "Polya Gamma + Latent Variable")
+#     )
+#   )
+#   
+#   # plot with horizontal line for true value
+#   ggplot(df, aes(x = iteration, y = value, color = sampler)) +
+#     geom_line(alpha = 0.7) +
+#     geom_hline(yintercept = beta_true[idx], 
+#                linetype = "dashed", 
+#                color = "black", 
+#                size = 0.9) +
+#     scale_color_manual(
+#       values = c(
+#         "Polya Gamma Augmentation"         = "blue", 
+#         "Polya Gamma + Latent Variable"    = "red"
+#       )
+#     ) +
+#     labs(
+#       x     = "Iteration",
+#       y     = bquote(beta[.(idx)]),
+#       color = "Sampler"
+#     ) +
+#     theme_minimal() +
+#     theme(legend.position = "bottom")
+# }
+# 
+# #Plot for UPG. 
+# plot_beta_traceupg <- function(idx, k = NULL) {
+#   # build the object names
+#   name_upg <- paste0("beta_", idx, "_samplesupg")
+#   name_upgd  <- paste0("beta_", idx, "_samplesupgd")
+#   
+#   # grab them from the environment
+#   b_upg <- get(name_upg)
+#   b_upgd  <- get(name_upgd)
+#   
+#   # optionally restrict to first k draws
+#   if (!is.null(k)) {
+#     b_upg <- head(b_hmc, k)
+#     b_upgd  <- head(b_upgd,  k)
+#   }
+#   
+#   # build a data.frame
+#   df <- data.frame(
+#     iteration = c(seq_along(b_upg), seq_along(b_upgd)),
+#     value     = c(b_hmc, b_upgd),
+#     sampler   = factor(
+#       c(
+#         rep("Ultimate Polya Gamma Full", length(b_upg)),
+#         rep("Ultimate Polya Gamma Partial", length(b_upgd))
+#       ),
+#       levels = c("Ultimate Polya Gamma Full", "Ultimate Polya Gamma Partial")
+#     )
+#   )
+#   
+#   # plot with horizontal line for true value
+#   ggplot(df, aes(x = iteration, y = value, color = sampler)) +
+#     geom_line(alpha = 0.7) +
+#     geom_hline(yintercept = beta_true[idx], 
+#                linetype = "dashed", 
+#                color = "black", 
+#                size = 0.9) +
+#     scale_color_manual(
+#       values = c(
+#         "Ultimate Polya Gamma Full"         = "blue", 
+#         "Ultimate Polya Gamma Partial"    = "red"
+#       )
+#     ) +
+#     labs(
+#       x     = "Iteration",
+#       y     = bquote(beta[.(idx)]),
+#       color = "Sampler"
+#     ) +
+#     theme_minimal() +
+#     theme(legend.position = "bottom")
+# }
+# 
+# 
+# k <- num_iters
+# plot_beta_trace(1, k) 
+# ggsave(filename = "Output/Results/tracebeta1.pdf", width = 8, height = 4, dpi = 300)
+# plot_beta_traceupg(1, k) 
+# ggsave(filename = "Output/Results/tracebeta1upg.pdf", width = 8, height = 4, dpi = 300)
+# 
+# plot_beta_trace(2, k) 
+# ggsave(filename = "Output/Results/tracebeta2.pdf", width = 8, height = 4, dpi = 300)
+# plot_beta_traceupg(2, k) 
+# ggsave(filename = "Output/Results/tracebeta2upg.pdf", width = 8, height = 4, dpi = 300)
+# 
+# plot_beta_trace(3, k) 
+# ggsave(filename = "Output/Results/tracebeta3.pdf", width = 8, height = 4, dpi = 300)
+# plot_beta_traceupg(3, k) 
+# ggsave(filename = "Output/Results/tracebeta3upg.pdf", width = 8, height = 4, dpi = 300)
 
 #### Plots for V_alpha
 
 #1. Compare Behaviors.
 density_plot <- density_overlay(vec1 = V1_naug,
                                 vec2 = V1_aug,
-                                vec3 = V1_upg,
+                                vec3 = V1_hmc,
                                 vec4 = V1_upgd,
                                 vertical_line = V_alpha_true[1,1],
-                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent" , "UPG Gamma" , "UPG Gamma Delta"))
+                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent" , "HMC Stan" , "UPG Gamma Delta"))
 
 print(density_plot)
 
 density_plot <- density_overlay(vec1 = V2_naug,
                                 vec2 = V2_aug,
-                                vec3 = V2_upg,
+                                vec3 = V2_hmc,
                                 vec4 = V2_upgd,
                                 vertical_line = V_alpha_true[1,1],
-                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent" , "UPG Gamma" , "UPG Gamma Delta"))
+                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent" , "HMC Stan" , "UPG Gamma Delta"))
 
 print(density_plot)
 
 density_plot <- density_overlay(vec1 = V21_naug,
                                 vec2 = V21_aug,
-                                vec3 = V21_upg,
+                                vec3 = V21_hmc,
                                 vec4 = V21_upgd,
                                 vertical_line = V_alpha_true[2,1],
-                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent" , "UPG Gamma" , "UPG Gamma Delta"))
+                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent" , "HMC Stan" , "UPG Gamma Delta"))
 
 print(density_plot)
 
@@ -484,8 +485,8 @@ V1_naug <- as.mcmc(V1_naug)
 essV1_naug <- effectiveSize(V1_naug)/time_naug
 V1_aug <- as.mcmc(V1_aug)
 essV1_aug <- effectiveSize(V1_aug)/time_aug
-V1_upg <- as.mcmc(V1_upg)
-essV1_upg <- effectiveSize(V1_upg)/time_upg
+V1_hmc <- as.mcmc(V1_hmc)
+essV1_hmc <- effectiveSize(V1_hmc)/time_hmc
 V1_upgd <- as.mcmc(V1_upgd)
 essV1_upgd <- effectiveSize(V1_upgd)/time_upgd
 
@@ -493,8 +494,8 @@ V2_naug <- as.mcmc(V2_naug)
 essV2_naug <- effectiveSize(V2_naug)/time_naug
 V2_aug <- as.mcmc(V2_aug)
 essV2_aug <- effectiveSize(V2_aug)/time_aug
-V2_upg <- as.mcmc(V2_upg)
-essV2_upg <- effectiveSize(V2_upg)/time_upg
+V2_hmc <- as.mcmc(V2_hmc)
+essV2_hmc <- effectiveSize(V2_hmc)/time_hmc
 V2_upgd <- as.mcmc(V2_upgd)
 essV2_upgd <- effectiveSize(V2_upgd)/time_upgd
 
@@ -502,8 +503,8 @@ V21_naug <- as.mcmc(V21_naug)
 essV21_naug <- effectiveSize(V21_naug)/time_naug
 V21_aug <- as.mcmc(V21_aug)
 essV21_aug <- effectiveSize(V21_aug)/time_aug
-V21_upg <- as.mcmc(V21_upg)
-essV21_upg <- effectiveSize(V21_upg)/time_upg
+V21_hmc <- as.mcmc(V21_hmc)
+essV21_hmc <- effectiveSize(V21_hmc)/time_hmc
 V21_upgd <- as.mcmc(V21_upgd)
 essV21_upgd <- effectiveSize(V21_upgd)/time_upgd
 
@@ -513,18 +514,18 @@ essV_df <- data.frame(
   method = factor(
     rep(c("Polya Gamma Augmentation",
           "Polya Gamma + Latent Variable Augmentation",
-          "UPG Gamma",
+          "HMC Stan",
           "UPG Gamma Delta"),
         times = 3),
     levels = c("Polya Gamma Augmentation",
                "Polya Gamma + Latent Variable Augmentation",
-               "UPG Gamma",
+               "HMC Stan",
                "UPG Gamma Delta")                       # orden fijo en la leyenda
   ),
   ess = c(
-    essV1_naug,  essV1_aug,  essV1_upg,  essV1_upgd,
-    essV2_naug,  essV2_aug,  essV2_upg,  essV2_upgd,
-    essV21_naug, essV21_aug, essV21_upg, essV21_upgd
+    essV1_naug,  essV1_aug,  essV1_hmc,  essV1_upgd,
+    essV2_naug,  essV2_aug,  essV2_hmc,  essV2_upgd,
+    essV21_naug, essV21_aug, essV21_hmc, essV21_upgd
   )
 )
 
@@ -537,7 +538,7 @@ ggplot(essV_df, aes(x = param, y = ess, fill = method)) +
     values = c(
       "Polya Gamma Augmentation"                       = "#1f77b4", # azul
       "Polya Gamma + Latent Variable Augmentation"     = "#d62728", # rojo
-      "UPG Gamma"                                       = "#2ca02c", # verde
+      "HMC Stan"                                       = "#2ca02c", # verde
       "UPG Gamma Delta"                                    = "#ff7f0e"  # naranja
     )
   ) +
@@ -557,77 +558,77 @@ ggplot(essV_df, aes(x = param, y = ess, fill = method)) +
 ggsave("Output/Results/essvalpha.pdf", width = 8, height = 4, dpi = 300)
 
 
-#3) traceplots
-
-plot_V_trace <- function(idx, k = NULL) {
-  # map idx→object names
-  naug_names <- c("V1_naug", "V2_naug", "V21_naug")
-  aug_names  <- c("V1_aug",  "V2_aug",  "V21_aug")
-  
-  # grab the correct vectors
-  v_naug <- as.numeric(get(naug_names[idx]))
-  v_aug  <- as.numeric(get(aug_names[idx]))
-  
-  # optional head()
-  if (!is.null(k)) {
-    v_naug <- head(v_naug, k)
-    v_aug  <- head(v_aug,  k)
-  }
-  
-  # assemble data
-  df <- data.frame(
-    iteration = c(seq_along(v_naug), seq_along(v_aug)),
-    value     = c(v_naug, v_aug),
-    sampler   = factor(
-      c(rep("Polya Gamma Augmentation", length(v_naug)),
-        rep("Polya Gamma + Latent Variable", length(v_aug))),
-      levels = c("Polya Gamma Augmentation","Polya Gamma + Latent Variable")
-    )
-  )
-  
-  # nice y-labels for each entry of V_alpha
-  ylabels <- list(
-    expression(V[alpha][1]),       # idx=1
-    expression(V[alpha][2]),       # idx=2
-    expression(V[alpha][2][1])     # idx=3 (off-diagonal)
-  )
-  
-  # true population value from V_alpha_true
-  pop_val <- switch(idx,
-                    V_alpha_true[1, 1],  # idx = 1
-                    V_alpha_true[2, 2],  # idx = 2
-                    V_alpha_true[2, 1]   # idx = 3
-  )
-  
-  ggplot(df, aes(x = iteration, y = value, color = sampler)) +
-    geom_line(alpha = 0.7) +
-    geom_hline(yintercept = pop_val,
-               linetype = "dashed",
-               color = "black",
-               size = 0.9) +
-    scale_color_manual(
-      values = c(
-        "Polya Gamma Augmentation"      = "blue",
-        "Polya Gamma + Latent Variable" = "red"
-      )
-    ) +
-    labs(
-      x     = "Iteration",
-      y     = ylabels[[idx]],
-      color = "Sampler"
-    ) +
-    theme_minimal() +
-    theme(legend.position = "bottom")
-}
-
-
-# Examples:
-plot_V_trace(1, k = 5000)         # V[alpha][1,1]
-ggsave(filename = "Output/Results/tracevalpha1.pdf", width = 8, height = 4, dpi = 300)
-plot_V_trace(2, k = 5000) # first 200 draws for V[alpha][2,2]
-ggsave(filename = "Output/Results/tracevalpha2.pdf", width = 8, height = 4, dpi = 300)
-plot_V_trace(3, k = 5000)      # the 'third' V_alpha entry (correlation)
-ggsave(filename = "Output/Results/tracevalpha21.pdf", width = 8, height = 4, dpi = 300)
+# #3) traceplots
+# 
+# plot_V_trace <- function(idx, k = NULL) {
+#   # map idx→object names
+#   naug_names <- c("V1_naug", "V2_naug", "V21_naug")
+#   aug_names  <- c("V1_aug",  "V2_aug",  "V21_aug")
+#   
+#   # grab the correct vectors
+#   v_naug <- as.numeric(get(naug_names[idx]))
+#   v_aug  <- as.numeric(get(aug_names[idx]))
+#   
+#   # optional head()
+#   if (!is.null(k)) {
+#     v_naug <- head(v_naug, k)
+#     v_aug  <- head(v_aug,  k)
+#   }
+#   
+#   # assemble data
+#   df <- data.frame(
+#     iteration = c(seq_along(v_naug), seq_along(v_aug)),
+#     value     = c(v_naug, v_aug),
+#     sampler   = factor(
+#       c(rep("Polya Gamma Augmentation", length(v_naug)),
+#         rep("Polya Gamma + Latent Variable", length(v_aug))),
+#       levels = c("Polya Gamma Augmentation","Polya Gamma + Latent Variable")
+#     )
+#   )
+#   
+#   # nice y-labels for each entry of V_alpha
+#   ylabels <- list(
+#     expression(V[alpha][1]),       # idx=1
+#     expression(V[alpha][2]),       # idx=2
+#     expression(V[alpha][2][1])     # idx=3 (off-diagonal)
+#   )
+#   
+#   # true population value from V_alpha_true
+#   pop_val <- switch(idx,
+#                     V_alpha_true[1, 1],  # idx = 1
+#                     V_alpha_true[2, 2],  # idx = 2
+#                     V_alpha_true[2, 1]   # idx = 3
+#   )
+#   
+#   ggplot(df, aes(x = iteration, y = value, color = sampler)) +
+#     geom_line(alpha = 0.7) +
+#     geom_hline(yintercept = pop_val,
+#                linetype = "dashed",
+#                color = "black",
+#                size = 0.9) +
+#     scale_color_manual(
+#       values = c(
+#         "Polya Gamma Augmentation"      = "blue",
+#         "Polya Gamma + Latent Variable" = "red"
+#       )
+#     ) +
+#     labs(
+#       x     = "Iteration",
+#       y     = ylabels[[idx]],
+#       color = "Sampler"
+#     ) +
+#     theme_minimal() +
+#     theme(legend.position = "bottom")
+# }
+# 
+# 
+# # Examples:
+# plot_V_trace(1, k = 5000)         # V[alpha][1,1]
+# ggsave(filename = "Output/Results/tracevalpha1.pdf", width = 8, height = 4, dpi = 300)
+# plot_V_trace(2, k = 5000) # first 200 draws for V[alpha][2,2]
+# ggsave(filename = "Output/Results/tracevalpha2.pdf", width = 8, height = 4, dpi = 300)
+# plot_V_trace(3, k = 5000)      # the 'third' V_alpha entry (correlation)
+# ggsave(filename = "Output/Results/tracevalpha21.pdf", width = 8, height = 4, dpi = 300)
 
 
 
@@ -639,10 +640,10 @@ ggsave(filename = "Output/Results/tracevalpha21.pdf", width = 8, height = 4, dpi
 #Componente 1 individuo 1
 density_plot <- density_overlay(vec1 = a1_nag[,1],
                                 vec2 = a1_ag[,1],
-                                vec3 = a1_upg[,1],
+                                vec3 = a1_hmc[,1],
                                 vec4 = a1_upgd[,1],
                                 vertical_line = alpha_true[1,1],
-                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent", "UPG Gamma", "UPG Gamma Delta"))
+                                labels = c("Augmented by Gamma", "Augmented by Gamma and latent", "HMC Stan", "UPG Gamma Delta"))
 
 print(density_plot)
 
@@ -650,12 +651,12 @@ print(density_plot)
 density_plot <- density_overlay(
   vec1 = a2_nag[,2],   # alpha[1,2] from PG
   vec2 = a2_ag[,2],    # alpha[1,2] from PG+Latent
-  vec3 = a2_upg[,2],       # alpha[1,2] from UPG Full
+  vec3 = a2_hmc[,2],       # alpha[1,2] from UPG Full
   vec4 = a2_upgd[,2],      # alpha[1,2] from UPG Partial
   vertical_line = alpha_true[1,2],  # <- corregido
   labels = c("Augmented by Gamma",
              "Augmented by Gamma and latent",
-             "UPG Gamma",
+             "HMC Stan",
              "UPG Gamma Delta")
 )
 
@@ -668,21 +669,7 @@ print(density_plot)
 test <- as.matrix(alpha_samples_aug[,1,1])
 dim(test)
 
-#Extract the ESS for all alphas.
-n <- dim(alpha_samples_aug)[2]          # nº de individuos
 
-## --- 2 · data.frame vacío ----------------------------------------------------
-df_ess <- data.frame(
-  ind            = integer(n),
-  ess_alpha1naug = numeric(n),
-  ess_alpha1aug  = numeric(n),
-  ess_alpha2naug = numeric(n),
-  ess_alpha2aug  = numeric(n),
-  meanalpha1_max = numeric(n),
-  meanalpha2_max = numeric(n)
-)
-
-## --- 3 · bucle ----------------------------------------------------------------
 ## ────────────────────────────────────────────────────────────────
 ## 0. Paquetes
 library(coda)            # effectiveSize()
@@ -696,11 +683,11 @@ df_ess <- data.frame(
   ind             = integer(n),
   ess_alpha1naug  = numeric(n),
   ess_alpha1aug   = numeric(n),
-  ess_alpha1upg   = numeric(n),
+  ess_alpha1hmc   = numeric(n),
   ess_alpha1upgd  = numeric(n),
   ess_alpha2naug  = numeric(n),
   ess_alpha2aug   = numeric(n),
-  ess_alpha2upg   = numeric(n),
+  ess_alpha2hmc   = numeric(n),
   ess_alpha2upgd  = numeric(n),
   meanalpha1_max  = numeric(n),
   meanalpha2_max  = numeric(n)
@@ -715,8 +702,8 @@ for (j in seq_len(n)) {
   chain2aug   <-  alpha_samples_aug[ , j, 2]
   chain1naug  <- alpha_samples_naug[ , j, 1]
   chain2naug  <- alpha_samples_naug[ , j, 2]
-  chain1upg   <-  alpha_samples_upg[ , j, 1]
-  chain2upg   <-  alpha_samples_upg[ , j, 2]
+  chain1hmc   <-  alpha_samples_hmc[ , j, 1]
+  chain2hmc   <-  alpha_samples_hmc[ , j, 2]
   chain1upgd  <- alpha_samples_upgd[ , j, 1]
   chain2upgd  <- alpha_samples_upgd[ , j, 2]
   
@@ -729,10 +716,10 @@ for (j in seq_len(n)) {
     time_naug
   ess2nau  <- effectiveSize(as.mcmc(chain2naug)) /
     time_naug
-  ess1upg  <- effectiveSize(as.mcmc(chain1upg))  /
-    time_upg
-  ess2upg  <- effectiveSize(as.mcmc(chain2upg))  /
-    time_upg
+  ess1hmc  <- effectiveSize(as.mcmc(chain1hmc))  /
+    time_hmc
+  ess2hmc  <- effectiveSize(as.mcmc(chain2hmc))  /
+    time_hmc
   ess1upgd <- effectiveSize(as.mcmc(chain1upgd)) /
     time_upgd
   ess2upgd <- effectiveSize(as.mcmc(chain2upgd)) /
@@ -740,20 +727,20 @@ for (j in seq_len(n)) {
   
   ## ─ medias ─────────────────────────────────────────────────────
   m1 <- c(mean(chain1naug), mean(chain1aug),
-          mean(chain1upg),  mean(chain1upgd))
+          mean(chain1hmc),  mean(chain1upgd))
   m2 <- c(mean(chain2naug), mean(chain2aug),
-          mean(chain2upg),  mean(chain2upgd))
+          mean(chain2hmc),  mean(chain2upgd))
   
   ## ─ rellenar fila j ────────────────────────────────────────────
   df_ess[j, ] <- list(
     ind             = j,
     ess_alpha1naug  = ess1nau,
     ess_alpha1aug   = ess1aug,
-    ess_alpha1upg   = ess1upg,
+    ess_alpha1hmc   = ess1hmc,
     ess_alpha1upgd  = ess1upgd,
     ess_alpha2naug  = ess2nau,
     ess_alpha2aug   = ess2aug,
-    ess_alpha2upg   = ess2upg,
+    ess_alpha2hmc   = ess2hmc,
     ess_alpha2upgd  = ess2upgd,
     meanalpha1_max  = max(m1),
     meanalpha2_max  = max(m2)
@@ -783,7 +770,7 @@ plot_ess <- function(df, alpha = 1, n = nrow(df)) {
     mutate(Sampler = recode(Sampler,
                             !!sprintf("ess_alpha%dnaug", alpha)  := "Polya Gamma",
                             !!sprintf("ess_alpha%daug",  alpha)  := "PG + Utility",
-                            !!sprintf("ess_alpha%dupg",  alpha)  := "UPG Gamma",
+                            !!sprintf("ess_alpha%dhmc",  alpha)  := "HMC Stan",
                             !!sprintf("ess_alpha%dupgd", alpha)  := "UPG Gamma Delta"
     ))
   
@@ -795,7 +782,7 @@ plot_ess <- function(df, alpha = 1, n = nrow(df)) {
       name   = "Sampler",
       values = c("Polya Gamma"     = "blue",
                  "PG + Utility"    = "red",
-                 "UPG Gamma"        = "forestgreen",
+                 "HMC Stan"        = "forestgreen",
                  "UPG Gamma Delta"     = "orange")
     ) +
     scale_x_continuous(breaks = seq(0, n, by = max(1, floor(n/10)))) +
