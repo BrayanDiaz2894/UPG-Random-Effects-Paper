@@ -17,8 +17,14 @@ library(posterior)
   ok
 }
 
+filename <- paste0(
+  "Output/V_samplesupgd_",
+  N, "_", P, ".RData"
+)
+
+
 set.seed(1)
-N <- 10000
+N <- 100000
 P <- 3  # Puedes cambiar este valor libremente
 
 X <- cbind(1, matrix(rnorm(N * (P - 1)), N, P - 1))
@@ -26,6 +32,7 @@ beta_true <- rnorm(P, mean = 0, sd = sqrt(10))  # Vector de dimensión P con med
 eta <- X %*% beta_true
 p  <- 1 / (1 + exp(-eta))
 y  <- rbinom(N, 1, p)
+mean(y)
 iterations <- 2000
 constant <- 0 #if 1 we consider ESS/s if zero is just ESS. 
 
@@ -89,18 +96,18 @@ time_to_seconds <- function(x) {
 
 ## ==== 1. GIBBS UPG (SOLO EFECTOS FIJOS) ====
 upg_logit_fe <- function(y, X,
-                         nsave       = 10000,
-                         nburn       = 2000,
-                         d0          = 2.5,
-                         D0          = 1.5,
-                         G0          = 100,
-                         B0          = 4,
-                         A0          = 4,
+                         nsave ,
+                         nburn ,
+                         d0 ,
+                         D0 ,
+                         G0 ,
+                         B0 ,
+                         A0 ,
                          gamma_boost = TRUE,
                          delta_boost = TRUE,
                          beta_start  = NULL,
                          verbose     = TRUE,
-                         seed        = 2025){
+                         seed        = 1){
   
   set.seed(seed)
   
@@ -195,63 +202,48 @@ upg_logit_fe <- function(y, X,
        time = timesamples_upg)
 }
 
-## ==== 2. MODELO STAN (β, γ, δ; HMC) ====
-stan_code_upg_fe <- "
+## ==== 2. MODELO STAN (logístico efectos fijos, sin raw) ====
+stan_code_logit_fe <- "
 data {
   int<lower=1> N;
   int<lower=1> P;
   array[N] int<lower=0,upper=1> y;
-  matrix[N,P] X;
+  matrix[N, P] X;
 
-  real<lower=0> A0;
-  real<lower=0> B0;
-  real<lower=0> G0;
-  real<lower=0> d0;
-  real<lower=0> D0;
+  real<lower=0> A0;   // varianza prior para el intercepto
+  real<lower=0> B0;   // varianza prior para el resto
 }
 parameters {
-  vector[P] beta_raw;
-  real gamma_raw;
-  real<lower=0> delta_raw;
-}
-transformed parameters {
   vector[P] beta;
-  real gamma;
-  real delta;
-
-  gamma = gamma_raw * sqrt(G0);
-  delta = delta_raw;
-
-  beta[1] = beta_raw[1] * sqrt(A0);
-  for (p in 2:P)
-    beta[p] = beta_raw[p] * sqrt(B0);
 }
 model {
-  beta_raw  ~ normal(0,1);
-  gamma_raw ~ normal(0,1);
-  delta_raw ~ inv_gamma(d0, D0);
+  // Priors: beta[1] ~ N(0, A0), beta[p>=2] ~ N(0, B0)
+  beta[1] ~ normal(0, sqrt(A0));
+  for (p in 2:P)
+    beta[p] ~ normal(0, sqrt(B0));
 
-  vector[N] eta = (X * beta + gamma) / sqrt(delta);
-  y ~ bernoulli_logit(eta);
+  // Likelihood
+  y ~ bernoulli_logit(X * beta);
 }
 generated quantities {
-  vector[N] lp = (X * beta + gamma) / sqrt(delta);
+  vector[N] linpred = X * beta; // opcional
 }
 "
 
+
 run_stan_upg_fe <- function(y, X,
-                            iter   = 12000,
-                            warmup = 2000,
-                            chains = 4,
-                            seed   = 2025,
-                            A0 = 4, B0 = 4, G0 = 100, d0 = 2.5, D0 = 1.5){
+                            iter  ,
+                            warmup ,
+                            chains ,
+                            seed   = 1,
+                            A0 , B0 , G0 , d0 , D0 ){
   
   if (!.have_cmdstan()) {
     message("Instalando CmdStan...")
     cmdstanr::install_cmdstan()
   }
   
-  stan_file <- cmdstanr::write_stan_file(stan_code_upg_fe)
+  stan_file <- cmdstanr::write_stan_file(stan_code_logit_fe)
   mod <- cmdstanr::cmdstan_model(stan_file)
   
   data_list <- list(N = nrow(X), P = ncol(X),
@@ -277,8 +269,16 @@ run_stan_upg_fe <- function(y, X,
 
 # ==== 4. EJEMPLO RÁPIDO ====
 
-fit_r    <- upg_logit_fe(y, X, nsave = iterations - 0.1*iterations, nburn = 0.1*iterations)
-fit_stan <- run_stan_upg_fe(y, X, iter = iterations, warmup = 0.1*iterations, chains = 1)
+fit_r    <- upg_logit_fe(y, X, nsave = iterations - 0.1*iterations, nburn = 0.1*iterations, d0          = 2.5,
+                         D0          = 1.5,
+                         G0          = 100,
+                         B0          = 4,
+                         A0          = 4)
+fit_stan <- run_stan_upg_fe(y, X, iter = iterations, warmup = 0.1*iterations, chains = 1, d0          = 2.5,
+                            D0          = 1.5,
+                            G0          = 100,
+                            B0          = 4,
+                            A0          = 4)
 
 timesamples_upg <- time_to_seconds(fit_r$time)^constant
 timesamples_hmc <- time_to_seconds(fit_stan$time)^constant
@@ -306,8 +306,44 @@ ess_stan <- apply(stan_mat, 2, function(v) ess_bulk(v))/timesamples_hmc # vector
 
 ## ---------- Mostrar ----------
 cat("ESS UPG:\n");  print(ess_upg)
-timesamples_upg
+print(sum(ess_upg))
 cat("\nESS Stan:\n"); print(ess_stan)
-timesamples_hmc
+print(sum(ess_stan))
+
+filename <- paste0(
+  "Output/UPGvsStan_",
+  N, "_", P, ".RData"
+)
+
+##Densities. 
+# Supongamos que ya existen: stan_mat y upg_mat (iter*chains x P)
+# Tomamos las 3 primeras columnas
+k <- 3
+stopifnot(ncol(stan_mat) >= k, ncol(upg_mat) >= k)
+
+# Arma data frame largo
+mk_df <- function(M, metodo, k){
+  data.frame(
+    valor  = as.vector(M[, 1:k]),
+    param  = rep(colnames(M)[1:k] %||% paste0("param[", 1:k, "]"),
+                 each = nrow(M)),
+    metodo = metodo
+  )
+}
+`%||%` <- function(a,b) if(is.null(a)) b else a
+
+df <- rbind(mk_df(stan_mat, "Stan", k),
+            mk_df(upg_mat,  "UPG",  k))
+
+library(ggplot2)
+
+ggplot(df, aes(x = valor, colour = metodo, fill = metodo)) +
+  geom_density(alpha = 0.25) +                 # densidades solapadas
+  facet_wrap(~ param, scales = "free", ncol = 1) +
+  theme_bw() +
+  labs(x = "valor", y = "densidad", colour = "", fill = "",
+       title = "Densidades comparadas: Stan vs UPG (primeras 3 columnas)")
 
 
+
+save.image(file = filename)   # equivalente a save(list = ls(), file = filename)

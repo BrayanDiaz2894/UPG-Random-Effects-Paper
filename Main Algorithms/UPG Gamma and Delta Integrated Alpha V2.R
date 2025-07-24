@@ -8,17 +8,23 @@ start_time <- Sys.time()
 #iter <- 2
 for (iter in 1:iterations) {
   
-  print(iter*100/iterations)
-  print("Delta")
+  print(iter/iterations*100)
   ## ---------------------------------------------------------------
   ## STEP 1 : draw latent utilities h_{ij}
     ## ---------------------------------------------------------------
     # 1. linear predictor η_ij
     ## ----------  STEP (Z)  : sample latent utilities  z_ij  -----------------
     ## Linear predictor η_ij  (same as before)
-    eta_current <- matrix(0, n, t_obs)
-    for (i in 1:n)
-      eta_current[i, ] <- X[i, , ] %*% Beta + as.numeric(Z[i, ] %*% Alpha[i, ])
+    #eta_current <- matrix(0, n, t_obs)
+    # 1) Parte fija: X_all %*% Beta  (N_total x 1)
+    xb_vec <- drop(X_all %*% Beta)
+    # 2) Reorganizar a (n x t_obs). OJO: como X_all se llenó por individuo,
+    #    el primer bloque de 't_obs' filas es el individuo 1, etc.
+    eta_X <- matrix(xb_vec, n, t_obs, byrow = TRUE)
+    # 3) Escalar por individuo: Z[i,] %*% Alpha[i,]  (n)
+    zalpha <- rowSums(Z * Alpha)
+    # 4) Sumar ese escalar a cada fila (t_obs veces)
+    eta_current <- sweep(eta_X, 1, zalpha, "+")   # o: eta_current <- eta_X + zalpha
     
     ## λ_ij   and   π_ij  = F(η_ij)
     lambda_mat <- exp(eta_current)                     # λ_ij = exp(η_ij)
@@ -112,7 +118,7 @@ for (iter in 1:iterations) {
       
       for (i in seq_len(n)) {
         Zi  <- matrix(Z[i, ], ncol = 1)                    # q × 1
-        Qi  <- V_alpha_inv + sw[i] * tcrossprod(Zi)        # q × q
+        Qi  <- V_alpha_inv + sw[i] * Z_outer[,, i]        # q × q
         
         Q_i_inv <- chol_inverse(Qi)
         
@@ -266,11 +272,12 @@ for (iter in 1:iterations) {
     )
     
     ## 5 · momentos posteriores
-    Sigma_beta <- chol_inverse(Q_beta)          # Q_beta⁻¹
-    mu_beta    <- Sigma_beta %*% s_vec          # m_beta
+    Rbeta   <- chol(Q_beta)                          
+    ybeta   <- forwardsolve(t(Rbeta), s_vec, upper.tri = FALSE)       
+    m_ibeta <- backsolve(Rbeta,  ybeta, upper.tri = TRUE)      
     
-    ## 6 · draw β  ~  N( mu_beta , Sigma_beta )
-    Beta <- as.numeric(mvrnorm(1, mu = mu_beta, Sigma = Sigma_beta))
+    zbeta <- rnorm(p)                                 # z ~ N(0, I_q)
+    Beta <- drop(m_ibeta + backsolve(Rbeta, zbeta, upper.tri = TRUE))
   
   ## ---------------------------------------------------------------
   ## STEP 9 : draw α_i | δ , β , h , ω         (usa h⋆ re-escalado)
@@ -285,7 +292,7 @@ for (iter in 1:iterations) {
       ## --- precisión  Σ_{α_i}^{-1} ---------------------------------
       sum_omega_i <- sum(omega_i)
       Sigma_alpha_inv_i <- V_alpha_inv +
-        sum_omega_i * (Z_i %*% t(Z_i))   # q × q
+        sum_omega_i * Z_outer[,, i]   # q × q
       
       ## --- media  m_{α_i} ------------------------------------------
       resid_star_i <- h_star_i*scale_h - (X_i %*% Beta)             # (T)
@@ -306,7 +313,7 @@ for (iter in 1:iterations) {
       m_i <- backsolve(R,  y, upper.tri = TRUE)               # luego R m_i = y
       
       
-      z <- rnorm(length(m_i))                                 # z ~ N(0, I_q)
+      z <- rnorm(q)                                 # z ~ N(0, I_q)
       Alpha[i, ] <- drop(m_i + backsolve(R, z, upper.tri = TRUE))
       
       

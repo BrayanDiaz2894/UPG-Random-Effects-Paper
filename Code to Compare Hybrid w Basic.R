@@ -21,7 +21,7 @@ library(ggplot2)
 library(tidyr)   
 library(tidyverse)
 
-constant = 0 ##if set to one, we use the normal time, if set to zero we only consider mixing 
+
 
 #Pick a random individual
 pick_random_real <- function(n = 1, min = 0, max = 100) {
@@ -35,13 +35,15 @@ rnumb <- ceiling(pick_random_real())  # un número real
 set.seed(123)
 
 # III. Set parameters
-n <- 100       # Number of individuals
-t_obs <- 30    # Observations per individual
+n <- 10000       # Number of individuals
+t_obs <- 10    # Observations per individual
 p <- 3         # Number of predictors (fixed effects)
 q <- 2         # Number of individual-level covariates (random effects)
 reg <- 0       # Regularization parameter (if needed)
 num_iters <- 2000
 unbalance <- 6
+constant = 0 ##if set to one, we use the normal time, if set to zero we only consider mixing 
+relative = 1 #if set to 1, all ESS will be computed relative to the polson. 
 
 # IV. Simulate data
 # i. Basic data:
@@ -256,6 +258,8 @@ essb1upgd <- effectiveSize(beta_1_samplesupgd)/time_upgd
 
 
 
+
+
 beta_2_samplesnaug <- as.mcmc(beta_2_samplesnaug)
 essb2naug <- effectiveSize(beta_2_samplesnaug)/time_naug
 beta_2_samplesaug <- as.mcmc(beta_2_samplesaug)
@@ -273,6 +277,23 @@ beta_3_sampleshmc <- as.mcmc(beta_3_sampleshmc)
 essb3hmc <- effectiveSize(beta_3_sampleshmc)/time_hmc
 beta_3_samplesupgd <- as.mcmc(beta_3_samplesupgd)
 essb3upgd <- effectiveSize(beta_3_samplesupgd)/time_upgd
+
+if(relative==1){
+  essb1upgd <- essb1upgd/essb1naug
+  essb1hmc <- essb1hmc/essb1naug
+  essb1aug <- essb1aug/essb1naug
+  essb1naug <- essb1naug/essb1naug
+  
+  essb2upgd <- essb2upgd/essb2naug
+  essb2hmc <- essb2hmc/essb2naug
+  essb2aug <- essb2aug/essb2naug
+  essb2naug <- essb2naug/essb2naug
+  
+  essb3upgd <- essb3upgd/essb3naug
+  essb3hmc <- essb3hmc/essb3naug
+  essb3aug <- essb3aug/essb3naug
+  essb3naug <- essb3naug/essb3naug
+}
 
 # build a data frame with correct factor levels
 ess_df <- data.frame(
